@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register — LuxeStay</title>
+  <link rel="stylesheet" th:href="@{/css/main.css}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body class="auth-body">
+
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <a href="/" class="auth-brand"><i class="fas fa-hotel"></i> LuxeStay</a>
+      <h1>Create account</h1>
+      <p>Join us for the best hotel experience</p>
+    </div>
+
+    <form id="registerForm" class="auth-form">
+
+      <div class="form-group">
+        <label class="form-label"><i class="fas fa-at"></i> Username</label>
+        <input type="text" id="username" class="form-input" placeholder="e.g. john_doe" required/>
+        <span class="field-hint">Only letters, numbers and underscores</span>
+        <span class="field-error" id="usernameError"></span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label"><i class="fas fa-user"></i> Display Name</label>
+        <input type="text" id="name" class="form-input" placeholder="e.g. John Doe" required/>
+        <span class="field-hint">This is shown publicly, like Instagram</span>
+        <span class="field-error" id="nameError"></span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label"><i class="fas fa-envelope"></i> Email</label>
+        <input type="email" id="email" class="form-input" placeholder="you@example.com" required/>
+        <span class="field-error" id="emailError"></span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label"><i class="fas fa-lock"></i> Password</label>
+        <div class="input-icon-right">
+          <input type="password" id="password" class="form-input" placeholder="Min 8 chars, upper, lower, number" required/>
+          <i class="fas fa-eye toggle-pw" onclick="togglePassword('password')"></i>
+        </div>
+        <div class="password-strength" id="pwStrength"></div>
+        <span class="field-error" id="passwordError"></span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label"><i class="fas fa-lock"></i> Confirm Password</label>
+        <div class="input-icon-right">
+          <input type="password" id="repeatPassword" class="form-input" placeholder="Repeat your password" required/>
+          <i class="fas fa-eye toggle-pw" onclick="togglePassword('repeatPassword')"></i>
+        </div>
+        <span class="field-error" id="repeatPasswordError"></span>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full btn-lg" id="registerBtn">
+        <span class="btn-text">Create Account</span>
+        <span class="btn-spinner" style="display:none"><i class="fas fa-spinner fa-spin"></i></span>
+      </button>
+    </form>
+
+    <div class="auth-divider"><span>or</span></div>
+    <a href="/oauth2/authorization/google" class="btn btn-google btn-full">
+      <img src="https://www.svgrepo.com/show/475656/google-color.svg" width="20" height="20" alt="Google"/>
+      Continue with Google
+    </a>
+
+    <p class="auth-switch">Already have an account? <a href="/auth/login" class="link-primary">Login</a></p>
+  </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>
+<script th:src="@{/js/app.js}"></script>
+<script>
+  document.getElementById('password').addEventListener('input', function() {
+    updatePasswordStrength(this.value);
+  });
+
+  document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearErrors();
+    const pw = document.getElementById('password').value;
+    const rw = document.getElementById('repeatPassword').value;
+    if (pw !== rw) { showFieldError('repeatPasswordError', 'Passwords do not match'); return; }
+
+    const btn = document.getElementById('registerBtn');
+    setButtonLoading(btn, true);
+    try {
+      const data = await apiPost('/api/auth/register', {
+        username: document.getElementById('username').value,
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        password: pw,
+        repeatPassword: rw
+      });
+      showToast('Account created! Check your email for OTP.', 'success');
+      setTimeout(() => {
+        window.location.href = '/auth/verify-otp?email=' + encodeURIComponent(document.getElementById('email').value) + '&purpose=REGISTRATION';
+      }, 1200);
+    } catch (err) {
+      if (err.data) renderFieldErrors(err.data);
+      else showToast(err.message || 'Registration failed', 'error');
+    } finally {
+      setButtonLoading(btn, false);
+    }
+  });
+</script>
+</body>
+</html>

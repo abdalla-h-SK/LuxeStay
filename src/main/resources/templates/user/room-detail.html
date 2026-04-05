@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Room Details — LuxeStay</title>
+  <link rel="stylesheet" th:href="@{/css/main.css}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div th:replace="~{fragments :: navbar}"></div>
+
+<main class="main-content">
+  <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Rooms</a>
+
+  <div id="roomDetail" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Loading...</div>
+</main>
+
+<div th:replace="~{fragments :: footer}"></div>
+<div th:replace="~{fragments :: toast}"></div>
+<script th:src="@{/js/app.js}"></script>
+<script th:inline="javascript">
+  const roomId = [[${roomId}]];
+
+  async function loadRoom() {
+    try {
+      const data = await apiFetch(`/api/rooms/${roomId}`);
+      const r = data.data;
+      document.getElementById('roomDetail').innerHTML = `
+        <div class="room-detail-layout">
+          <div class="room-detail-img-wrap">
+            <img src="${r.imageUrl || '/images/room-default.jpg'}" alt="Room ${r.roomNumber}" class="room-detail-img"/>
+            <span class="room-badge badge-${r.status.toLowerCase()} badge-lg">${r.status}</span>
+          </div>
+          <div class="room-detail-info">
+            <div class="room-detail-header">
+              <h1>Room ${r.roomNumber}</h1>
+              <span class="room-type-pill">${r.type}</span>
+            </div>
+            <p class="room-detail-desc">${r.description || 'Experience comfort and elegance in this beautifully appointed room.'}</p>
+            <div class="room-detail-features">
+              <div class="feature-item"><i class="fas fa-users"></i><span>Up to ${r.maxOccupancy} guests</span></div>
+              <div class="feature-item"><i class="fas fa-wifi"></i><span>Free WiFi</span></div>
+              <div class="feature-item"><i class="fas fa-tv"></i><span>Smart TV</span></div>
+              <div class="feature-item"><i class="fas fa-snowflake"></i><span>Air Conditioning</span></div>
+            </div>
+            <div class="room-detail-pricing">
+              <div class="price-display">$${r.price}<span>/night</span></div>
+            </div>
+            <div class="booking-form-inline">
+              <h3>Select Dates</h3>
+              <div class="date-row">
+                <div class="form-group">
+                  <label class="form-label">Check-in</label>
+                  <input type="date" id="checkIn" class="form-input" onchange="calcTotal()"/>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Check-out</label>
+                  <input type="date" id="checkOut" class="form-input" onchange="calcTotal()"/>
+                </div>
+              </div>
+              <div class="total-display" id="totalDisplay" style="display:none">
+                <span id="nightsText"></span> — <strong id="totalText"></strong>
+              </div>
+              <button class="btn btn-primary btn-full btn-lg" onclick="proceedToBook(${r.id})" ${r.status !== 'AVAILABLE' ? 'disabled' : ''}>
+                ${r.status === 'AVAILABLE' ? '<i class="fas fa-calendar-plus"></i> Book This Room' : '<i class="fas fa-times-circle"></i> Not Available'}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      setDefaultDates();
+    } catch (err) {
+      document.getElementById('roomDetail').innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>${err.message}</p></div>`;
+    }
+  }
+
+  function setDefaultDates() {
+    const p = new URLSearchParams(window.location.search);
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date(); dayAfter.setDate(dayAfter.getDate() + 2);
+    document.getElementById('checkIn').value = p.get('checkIn') || tomorrow.toISOString().split('T')[0];
+    document.getElementById('checkOut').value = p.get('checkOut') || dayAfter.toISOString().split('T')[0];
+    calcTotal();
+  }
+
+  function calcTotal() {
+    const ci = document.getElementById('checkIn')?.value;
+    const co = document.getElementById('checkOut')?.value;
+    if (!ci || !co) return;
+    const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
+    if (nights <= 0) return;
+    const priceText = document.querySelector('.price-display')?.textContent.replace(/[^\d.]/g, '') || 0;
+    const total = (parseFloat(priceText) * nights).toFixed(2);
+    document.getElementById('totalDisplay').style.display = 'flex';
+    document.getElementById('nightsText').textContent = `${nights} night${nights > 1 ? 's' : ''}`;
+    document.getElementById('totalText').textContent = `Total: $${total}`;
+  }
+
+  function proceedToBook(id) {
+    if (!getAccessToken()) { window.location.href = '/auth/login'; return; }
+    const ci = document.getElementById('checkIn').value;
+    const co = document.getElementById('checkOut').value;
+    window.location.href = `/bookings/new?roomId=${id}&checkIn=${ci}&checkOut=${co}`;
+  }
+
+  loadRoom();
+  initNavbar();
+</script>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Verify OTP — LuxeStay</title>
+  <link rel="stylesheet" th:href="@{/css/main.css}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body class="auth-body">
+
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <a href="/" class="auth-brand"><i class="fas fa-hotel"></i> LuxeStay</a>
+      <div class="otp-icon-wrap"><i class="fas fa-envelope-open-text"></i></div>
+      <h1>Check your email</h1>
+      <p>We sent a 6-digit code to<br><strong id="emailDisplay" th:text="${email}">your email</strong></p>
+    </div>
+
+    <form id="otpForm" class="auth-form">
+      <input type="hidden" id="emailField" th:value="${email}"/>
+      <input type="hidden" id="purposeField" th:value="${purpose}"/>
+
+      <div class="otp-inputs" id="otpInputs">
+        <input class="otp-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+        <input class="otp-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+        <input class="otp-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+        <input class="otp-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+        <input class="otp-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+        <input class="otp-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]"/>
+      </div>
+      <span class="field-error text-center" id="otpError"></span>
+
+      <div class="otp-timer">
+        Code expires in <span id="countdown" class="countdown">10:00</span>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full btn-lg" id="verifyBtn">
+        <span class="btn-text">Verify Code</span>
+        <span class="btn-spinner" style="display:none"><i class="fas fa-spinner fa-spin"></i></span>
+      </button>
+    </form>
+
+    <div class="resend-section">
+      Didn't receive it?
+      <button class="link-btn" id="resendBtn" onclick="resendOtp()">Resend OTP</button>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>
+<script th:src="@{/js/app.js}"></script>
+<script>
+  // Auto-focus and auto-advance OTP inputs
+  const digits = document.querySelectorAll('.otp-digit');
+  digits.forEach((input, i) => {
+    input.addEventListener('input', () => {
+      if (input.value && i < digits.length - 1) digits[i + 1].focus();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !input.value && i > 0) digits[i - 1].focus();
+    });
+    input.addEventListener('paste', (e) => {
+      const paste = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+      paste.split('').forEach((ch, j) => { if (digits[j]) digits[j].value = ch; });
+      e.preventDefault();
+    });
+  });
+  digits[0].focus();
+
+  // Countdown timer
+  let seconds = 600;
+  const timer = setInterval(() => {
+    seconds--;
+    const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const s = String(seconds % 60).padStart(2, '0');
+    document.getElementById('countdown').textContent = `${m}:${s}`;
+    if (seconds <= 0) { clearInterval(timer); document.getElementById('countdown').textContent = 'Expired'; }
+  }, 1000);
+
+  document.getElementById('otpForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = Array.from(digits).map(d => d.value).join('');
+    if (code.length < 6) { showFieldError('otpError', 'Please enter all 6 digits'); return; }
+    const btn = document.getElementById('verifyBtn');
+    setButtonLoading(btn, true);
+    clearErrors();
+    try {
+      const data = await apiPost('/api/auth/verify-otp', {
+        email: document.getElementById('emailField').value,
+        otpCode: code,
+        purpose: document.getElementById('purposeField').value
+      });
+      if (data.data?.accessToken) {
+        saveTokens(data.data.accessToken, data.data.refreshToken, data.data.user);
+      }
+      showToast('Verified successfully!', 'success');
+      const role = data.data?.user?.role;
+      setTimeout(() => { window.location.href = role === 'ADMIN' ? '/admin' : '/'; }, 800);
+    } catch (err) {
+      showFieldError('otpError', err.message || 'Invalid OTP');
+      digits.forEach(d => { d.value = ''; d.classList.add('shake'); });
+      setTimeout(() => digits.forEach(d => d.classList.remove('shake')), 600);
+      digits[0].focus();
+    } finally {
+      setButtonLoading(btn, false);
+    }
+  });
+
+  async function resendOtp() {
+    const email = document.getElementById('emailField').value;
+    const purpose = document.getElementById('purposeField').value;
+    try {
+      await apiPost('/api/auth/forgot-password', { email });
+      showToast('New OTP sent!', 'success');
+    } catch (e) { showToast('Could not resend OTP', 'error'); }
+  }
+</script>
+</body>
+</html>

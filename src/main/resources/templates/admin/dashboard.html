@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard — LuxeStay</title>
+  <link rel="stylesheet" th:href="@{/css/main.css}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div th:replace="~{fragments :: navbar}"></div>
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <div class="sidebar-brand"><i class="fas fa-hotel"></i> Admin Panel</div>
+    <nav class="sidebar-nav">
+      <a href="/admin" class="sidebar-link active"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="/admin/rooms" class="sidebar-link staff-hidden"><i class="fas fa-bed"></i> Rooms</a>
+      <a href="/admin/bookings" class="sidebar-link"><i class="fas fa-calendar-alt"></i> Bookings</a>
+      <a href="/admin/users" class="sidebar-link staff-hidden"><i class="fas fa-users"></i> Users</a>
+      <a href="/admin/reports" class="sidebar-link staff-hidden"><i class="fas fa-chart-bar"></i> Reports</a>
+    </nav>
+  </aside>
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <h1>Dashboard</h1>
+      <button class="btn btn-outline btn-sm" onclick="loadStats()"><i class="fas fa-sync"></i> Refresh</button>
+    </div>
+
+    <div id="statsGrid" class="stats-grid">
+      <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div>
+    </div>
+
+    <div class="admin-grid-2">
+      <div class="admin-card">
+        <div class="card-header"><h3>Recent Bookings</h3><a href="/admin/bookings" class="link-primary">View all</a></div>
+        <div id="recentBookings"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div></div>
+      </div>
+      <div class="admin-card" id="topRoomsCard">
+        <div class="card-header"><h3>Most Booked Rooms</h3></div>
+        <div id="topRooms"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+<div th:replace="~{fragments :: toast}"></div>
+<script th:src="@{/js/app.js}"></script>
+<script>
+  requireAdmin();
+
+  const user = getUser();
+  if (user.role === 'STAFF') {
+      const topRoomsCard = document.getElementById('topRoomsCard');
+      if (topRoomsCard) topRoomsCard.style.display = 'none';
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    if (getUser()?.role === 'STAFF') {
+      document.querySelectorAll('.staff-hidden').forEach(el => el.style.display = 'none');
+    }
+  });
+
+  const isAdmin = getUser()?.role === 'ADMIN';
+  const reportsEndpoint = isAdmin ? '/api/admin/reports' : '/api/staff/dashboard';
+  const bookingsEndpoint = isAdmin ? '/api/admin/bookings' : '/api/staff/bookings';
+
+  async function loadStats() {
+    try {
+      const data = await apiFetch(reportsEndpoint);
+      const r = data.data;
+
+      document.getElementById('statsGrid').innerHTML = `
+        ${isAdmin ? `
+        <div class="stat-card stat-revenue">
+          <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
+          <div><div class="stat-value">$${(r.totalRevenue||0).toFixed(2)}</div>
+          <div class="stat-label">Total Revenue</div></div>
+        </div>` : ''}
+        <div class="stat-card stat-bookings">
+          <div class="stat-icon"><i class="fas fa-calendar-check"></i></div>
+          <div><div class="stat-value">${r.totalBookings}</div>
+          <div class="stat-label">Total Bookings</div></div>
+        </div>
+        <div class="stat-card stat-rooms">
+          <div class="stat-icon"><i class="fas fa-bed"></i></div>
+          <div><div class="stat-value">${r.availableRooms}/${r.totalRooms}</div>
+          <div class="stat-label">Rooms Available</div></div>
+        </div>
+        <div class="stat-card stat-occupancy">
+          <div class="stat-icon"><i class="fas fa-percent"></i></div>
+          <div><div class="stat-value">${(r.occupancyRate||0).toFixed(1)}%</div>
+          <div class="stat-label">Occupancy Rate</div></div>
+        </div>
+        ${isAdmin ? `
+        <div class="stat-card stat-monthly">
+          <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+          <div><div class="stat-value">$${(r.monthlyRevenue||0).toFixed(2)}</div>
+          <div class="stat-label">This Month</div></div>
+        </div>` : ''}
+      `;
+
+      if (r.mostBookedRooms?.length) {
+        document.getElementById('topRooms').innerHTML = r.mostBookedRooms.map((rm, i) => `
+          <div class="top-room-row">
+            <span class="top-rank">#${i+1}</span>
+            <div><strong>Room ${rm.roomNumber}</strong><br><small>${rm.type}</small></div>
+            <span class="top-count">${rm.bookingCount} bookings</span>
+          </div>`).join('');
+      } else {
+        document.getElementById('topRooms').innerHTML =
+          '<div style="padding:20px;text-align:center;color:#64748b">No bookings yet</div>';
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+      document.getElementById('statsGrid').innerHTML =
+        '<div style="padding:20px;color:red">Failed to load stats</div>';
+    }
+
+    try {
+      const bd = await apiFetch(`${bookingsEndpoint}?page=0&size=5`);
+      document.getElementById('recentBookings').innerHTML =
+        bd.data?.content?.map(b => `
+          <div class="booking-row">
+            <div><strong>#${b.id}</strong> — Room ${b.room?.roomNumber}</div>
+            <div>${b.user?.name}</div>
+            <span class="status-badge status-${b.status.toLowerCase()}">${b.status}</span>
+            <div>$${b.totalPrice}</div>
+          </div>`).join('') || '<p class="text-muted" style="padding:12px">No bookings yet</p>';
+    } catch (e) {
+      document.getElementById('recentBookings').innerHTML =
+        '<p style="padding:12px;color:#64748b">No bookings available</p>';
+    }
+  }
+
+  startStatsPoll(loadStats);
+  initNavbar();
+  initWebSocket();
+</script>
+</body>
+</html>

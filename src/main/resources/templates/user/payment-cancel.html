@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Payment — LuxeStay</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body class="auth-body">
+<div class="auth-container">
+    <div class="auth-card text-center">
+        <div id="statusIcon" style="font-size:4rem;margin-bottom:16px;">⏳</div>
+        <h1 id="statusTitle">Processing Payment...</h1>
+        <p id="statusMsg">Please wait while we check your payment status.</p>
+        <div id="paymentDetail"></div>
+        <a href="/bookings/my" class="btn btn-primary btn-full" style="margin-top:24px">View My Bookings</a>
+    </div>
+</div>
+<div id="toastContainer" class="toast-container"></div>
+<script th:src="@{/js/app.js}"></script>
+<script>
+    // PayPal sometimes sends successful payments to cancel URL with just 'token'
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    async function checkPayment() {
+      if (!token) {
+        showCancelled();
+        return;
+      }
+
+      // Try to capture — if already paid this returns the payment
+      // If genuinely cancelled, it will fail
+      try {
+        const data = await apiPost(
+          `/api/payments/execute?token=${token}&PayerID=`, {}
+        );
+        // Success!
+        document.getElementById('statusIcon').textContent = '✅';
+        document.getElementById('statusTitle').textContent = 'Payment Successful!';
+        document.getElementById('statusMsg').textContent =
+          'Your booking is confirmed and payment received!';
+        document.getElementById('paymentDetail').innerHTML = `
+          <div class="payment-detail-box">
+            <p><i class="fas fa-receipt"></i> Transaction ID:
+              <strong>${data.data?.transactionId || token}</strong></p>
+            <p><i class="fas fa-money-bill"></i> Amount:
+              <strong>$${data.data?.amount || ''}</strong></p>
+          </div>`;
+      } catch (e) {
+        // Check if already paid
+        showCancelled();
+      }
+    }
+
+    function showCancelled() {
+      document.getElementById('statusIcon').textContent = '❌';
+      document.getElementById('statusTitle').textContent = 'Payment Cancelled';
+      document.getElementById('statusMsg').textContent =
+        'Your payment was cancelled. Your booking is still reserved — you can pay later from My Bookings.';
+    }
+
+    checkPayment();
+    initNavbar();
+</script>
+</body>
+</html>

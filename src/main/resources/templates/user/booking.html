@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Book Room — LuxeStay</title>
+  <link rel="stylesheet" th:href="@{/css/main.css}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div th:replace="~{fragments :: navbar}"></div>
+<main class="main-content">
+  <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Rooms</a>
+  <div class="booking-page-layout">
+    <div class="booking-form-card">
+      <h2><i class="fas fa-calendar-plus"></i> Complete Your Booking</h2>
+      <div id="roomSummary" class="room-summary-mini"></div>
+      <form id="bookingForm" class="auth-form">
+        <input type="hidden" id="roomId" th:value="${roomId}"/>
+        <div class="date-row">
+          <div class="form-group">
+            <label class="form-label">Check-in Date</label>
+            <input type="date" id="checkInDate" class="form-input" required onchange="calcTotal()"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Check-out Date</label>
+            <input type="date" id="checkOutDate" class="form-input" required onchange="calcTotal()"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Number of Guests</label>
+          <input type="number" id="guestsCount" class="form-input" value="1" min="1" max="20"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Special Requests <span class="optional">(optional)</span></label>
+          <textarea id="specialRequests" class="form-input" rows="3" placeholder="Any special requests or notes..."></textarea>
+        </div>
+        <div class="booking-total-box" id="totalBox" style="display:none">
+          <div class="total-row"><span>Room rate</span><span id="roomRate">—</span></div>
+          <div class="total-row"><span>Nights</span><span id="nightsCount">—</span></div>
+          <div class="total-row total-final"><span>Total</span><span id="grandTotal">—</span></div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full btn-lg" id="bookBtn">
+          <span class="btn-text"><i class="fas fa-check"></i> Confirm Booking</span>
+          <span class="btn-spinner" style="display:none"><i class="fas fa-spinner fa-spin"></i></span>
+        </button>
+      </form>
+    </div>
+  </div>
+</main>
+<div th:replace="~{fragments :: footer}"></div>
+<div th:replace="~{fragments :: toast}"></div>
+<script th:src="@{/js/app.js}"></script>
+<script>
+  requireAuth();
+  const params = new URLSearchParams(window.location.search);
+  const roomId = params.get('roomId') || document.getElementById('roomId').value;
+  let roomPrice = 0;
+
+  async function loadRoomSummary() {
+    try {
+      const data = await apiFetch(`/api/rooms/${roomId}`);
+      const r = data.data;
+      roomPrice = parseFloat(r.price);
+      document.getElementById('roomSummary').innerHTML = `
+        <div class="room-mini-card">
+          <img src="${r.imageUrl || '/images/room-default.jpg'}" alt="Room"/>
+          <div>
+            <strong>Room ${r.roomNumber}</strong>
+            <span class="room-type-tag">${r.type}</span>
+            <div>$${r.price}/night</div>
+          </div>
+        </div>`;
+      document.getElementById('roomRate').textContent = `$${r.price}/night`;
+    } catch (e) { showToast('Could not load room info', 'error'); }
+  }
+
+  function calcTotal() {
+    const ci = document.getElementById('checkInDate').value;
+    const co = document.getElementById('checkOutDate').value;
+    if (!ci || !co) return;
+    const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
+    if (nights <= 0) return;
+    document.getElementById('totalBox').style.display = 'block';
+    document.getElementById('nightsCount').textContent = nights;
+    document.getElementById('grandTotal').textContent = `$${(roomPrice * nights).toFixed(2)}`;
+  }
+
+  // Pre-fill dates from URL
+  if (params.get('checkIn')) { document.getElementById('checkInDate').value = params.get('checkIn'); }
+  if (params.get('checkOut')) { document.getElementById('checkOutDate').value = params.get('checkOut'); }
+
+  document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('bookBtn');
+    setButtonLoading(btn, true);
+    try {
+      const data = await apiPost('/api/bookings', {
+        roomId: parseInt(roomId),
+        checkInDate: document.getElementById('checkInDate').value,
+        checkOutDate: document.getElementById('checkOutDate').value,
+        guestsCount: parseInt(document.getElementById('guestsCount').value),
+        specialRequests: document.getElementById('specialRequests').value
+      });
+      showToast('Booking confirmed! Redirecting to payment...', 'success');
+      const bookingId = data.data.id;
+      setTimeout(async () => {
+        try {
+          const payData = await apiPost('/api/payments/create', { bookingId });
+          if (payData.data?.approvalUrl) {
+            window.location.href = payData.data.approvalUrl;
+          } else { window.location.href = '/bookings/my'; }
+        } catch (pe) { window.location.href = '/bookings/my'; }
+      }, 1000);
+    } catch (err) {
+      showToast(err.message || 'Booking failed', 'error');
+    } finally { setButtonLoading(btn, false); }
+  });
+
+  loadRoomSummary();
+  calcTotal();
+  initNavbar();
+</script>
+</body>
+</html>

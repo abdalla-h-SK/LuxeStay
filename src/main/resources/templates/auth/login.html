@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login — LuxeStay</title>
+  <link rel="stylesheet" th:href="@{/css/main.css}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body class="auth-body">
+
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <a href="/" class="auth-brand"><i class="fas fa-hotel"></i> LuxeStay</a>
+      <h1>Welcome back</h1>
+      <p>Sign in to your account</p>
+    </div>
+
+    <form id="loginForm" class="auth-form">
+      <div class="form-group">
+        <label class="form-label"><i class="fas fa-user"></i> Username or Email</label>
+        <input type="text" id="usernameOrEmail" class="form-input" placeholder="Enter username or email" required/>
+        <span class="field-error" id="usernameOrEmailError"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label"><i class="fas fa-lock"></i> Password</label>
+        <div class="input-icon-right">
+          <input type="password" id="password" class="form-input" placeholder="Enter password" required/>
+          <i class="fas fa-eye toggle-pw" onclick="togglePassword('password')"></i>
+        </div>
+        <span class="field-error" id="passwordError"></span>
+      </div>
+
+      <div class="form-footer-row">
+        <a href="/auth/forgot-password" class="link-subtle">Forgot password?</a>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full btn-lg" id="loginBtn">
+        <span class="btn-text">Sign In</span>
+        <span class="btn-spinner" style="display:none"><i class="fas fa-spinner fa-spin"></i></span>
+      </button>
+    </form>
+
+    <div class="auth-divider"><span>or</span></div>
+
+    <a href="/oauth2/authorization/google" class="btn btn-google btn-full">
+      <img src="https://www.svgrepo.com/show/475656/google-color.svg" width="20" height="20" alt="Google"/>
+      Continue with Google
+    </a>
+
+    <p class="auth-switch">Don't have an account? <a href="/auth/register" class="link-primary">Register</a></p>
+  </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>
+<script th:src="@{/js/app.js}"></script>
+<script th:src="@{/js/app.js}"></script>
+<script>
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('loginBtn');
+    setButtonLoading(btn, true);
+    clearErrors();
+    try {
+      const data = await apiPost('/api/auth/login', {
+        usernameOrEmail: document.getElementById('usernameOrEmail').value,
+        password: document.getElementById('password').value
+      });
+
+      console.log('Login response:', JSON.stringify(data));
+
+      if (data.data && data.data.accessToken) {
+        saveTokens(data.data.accessToken, data.data.refreshToken, data.data.user);
+        console.log('Token saved:', localStorage.getItem('access_token') ? 'YES' : 'NO');
+        console.log('User saved:', localStorage.getItem('user'));
+        showToast('Login successful!', 'success');
+        const role = data.data.user?.role;
+        setTimeout(() => {
+          if (role === 'ADMIN') {
+            window.location.href = '/admin';
+          } else {
+            window.location.href = '/';
+          }
+        }, 800);
+      } else {
+        console.error('No accessToken in response:', data);
+        showToast('Login failed - no token received', 'error');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      showToast(err.message || 'Login failed', 'error');
+    } finally {
+      setButtonLoading(btn, false);
+    }
+  });
+</script>
+</body>
+</html>

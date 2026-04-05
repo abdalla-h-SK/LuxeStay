@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Users — LuxeStay Admin</title>
+  <link rel="stylesheet" th:href="@{/css/main.css}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div th:replace="~{fragments :: navbar}"></div>
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <div class="sidebar-brand"><i class="fas fa-hotel"></i> Admin Panel</div>
+    <nav class="sidebar-nav">
+      <a href="/admin" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="/admin/rooms" class="sidebar-link"><i class="fas fa-bed"></i> Rooms</a>
+      <a href="/admin/bookings" class="sidebar-link"><i class="fas fa-calendar-alt"></i> Bookings</a>
+      <a href="/admin/users" class="sidebar-link active"><i class="fas fa-users"></i> Users</a>
+      <a href="/admin/reports" class="sidebar-link"><i class="fas fa-chart-bar"></i> Reports</a>
+    </nav>
+  </aside>
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <h1>All Users</h1>
+      <div class="search-inline">
+        <input type="text" id="userSearch" class="form-input" placeholder="Search by name, email, username..." oninput="debounceSearch()"/>
+      </div>
+    </div>
+    <div id="usersTable"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div></div>
+    <div class="pagination" id="pagination"></div>
+  </main>
+</div>
+<div th:replace="~{fragments :: toast}"></div>
+<script th:src="@{/js/app.js}"></script>
+<script>
+  requireAdmin();
+  let searchTimer;
+
+  function debounceSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => loadUsers(0), 400);
+  }
+
+  async function loadUsers(page = 0) {
+    const search = document.getElementById('userSearch').value;
+    let url = `/api/admin/users?page=${page}&size=15`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    try {
+      const data = await apiFetch(url);
+      const u = data.data;
+      document.getElementById('usersTable').innerHTML = `
+        <table class="admin-table">
+          <thead><tr><th>ID</th><th>Username</th><th>Name</th><th>Email</th><th>Role</th><th>Verified</th><th>Joined</th></tr></thead>
+          <tbody>
+            ${u.content.map(user => `
+              <tr>
+                <td>#${user.id}</td>
+                <td><strong>@${user.username}</strong></td>
+                <td>${user.name}</td>
+                <td>${user.email}</td>
+                <td><span class="role-badge role-${user.role.toLowerCase()}">${user.role}</span></td>
+                <td>${user.verified ? '<span class="verified-badge"><i class="fas fa-check-circle"></i></span>' : '<span class="unverified-badge"><i class="fas fa-times-circle"></i></span>'}</td>
+                <td>${new Date(user.createdAt).toLocaleDateString()}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+      renderPagination(u, 'pagination', loadUsers);
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  loadUsers();
+  initNavbar();
+</script>
+</body>
+</html>

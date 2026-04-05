@@ -1,0 +1,33 @@
+# ── Secrets (NEVER commit) ────────────────────────
+.env
+
+# ── Java / Maven ──────────────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+.mvn/wrapper/maven-wrapper.jar
+
+# ── IDE ───────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ── Logs ──────────────────────────────────────────
+logs/
+*.log
+
+# ── OS ────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Docker volumes ────────────────────────────────
+postgres_data/
+redis_data/

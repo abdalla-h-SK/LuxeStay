@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manage Rooms — LuxeStay Admin</title>
+  <link rel="stylesheet" th:href="@{/css/main.css}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div th:replace="~{fragments :: navbar}"></div>
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <div class="sidebar-brand"><i class="fas fa-hotel"></i> Admin Panel</div>
+    <nav class="sidebar-nav">
+      <a href="/admin" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="/admin/rooms" class="sidebar-link active"><i class="fas fa-bed"></i> Rooms</a>
+      <a href="/admin/bookings" class="sidebar-link"><i class="fas fa-calendar-alt"></i> Bookings</a>
+      <a href="/admin/users" class="sidebar-link"><i class="fas fa-users"></i> Users</a>
+      <a href="/admin/reports" class="sidebar-link"><i class="fas fa-chart-bar"></i> Reports</a>
+    </nav>
+  </aside>
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <h1>Manage Rooms</h1>
+      <button class="btn btn-primary" onclick="openRoomModal()"><i class="fas fa-plus"></i> Add Room</button>
+    </div>
+    <div id="roomsTable"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div></div>
+    <div class="pagination" id="pagination"></div>
+  </main>
+</div>
+
+<!-- Room Modal -->
+<div class="modal-overlay" id="roomModal" style="display:none">
+  <div class="modal-box modal-lg">
+    <div class="modal-header">
+      <h3 id="modalTitle">Add Room</h3>
+      <button class="modal-close" onclick="closeRoomModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <form id="roomForm">
+      <input type="hidden" id="editRoomId"/>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Room Number*</label><input type="text" id="roomNumber" class="form-input" required/></div>
+        <div class="form-group"><label class="form-label">Type*</label>
+          <select id="roomType" class="form-input" required>
+            <option value="SINGLE">Single</option><option value="DOUBLE">Double</option>
+            <option value="TWIN">Twin</option><option value="SUITE">Suite</option>
+            <option value="DELUXE">Deluxe</option><option value="PRESIDENTIAL">Presidential</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Price / Night ($)*</label><input type="number" id="roomPrice" class="form-input" step="0.01" min="1" required/></div>
+        <div class="form-group"><label class="form-label">Max Occupancy</label><input type="number" id="maxOccupancy" class="form-input" value="2" min="1" max="20"/></div>
+      </div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select id="roomStatus" class="form-input">
+          <option value="AVAILABLE">Available</option><option value="MAINTENANCE">Maintenance</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Description</label><textarea id="roomDesc" class="form-input" rows="3" placeholder="Room description..."></textarea></div>
+      <div class="form-group"><label class="form-label">Image URL</label><input type="url" id="roomImage" class="form-input" placeholder="https://..."/></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" onclick="closeRoomModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="saveRoomBtn">
+          <span class="btn-text">Save Room</span>
+          <span class="btn-spinner" style="display:none"><i class="fas fa-spinner fa-spin"></i></span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<div th:replace="~{fragments :: toast}"></div>
+<div th:replace="~{fragments :: modal}"></div>
+<script th:src="@{/js/app.js}"></script>
+<script>
+  requireAdmin();
+
+  async function loadRooms(page = 0) {
+    try {
+      const data = await apiFetch(`/api/rooms?page=${page}&size=12`);
+      const rooms = data.data;
+      document.getElementById('roomsTable').innerHTML = `
+        <table class="admin-table">
+          <thead><tr><th>Room#</th><th>Type</th><th>Price</th><th>Max</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${rooms.content.map(r => `
+              <tr>
+                <td><strong>${r.roomNumber}</strong></td>
+                <td><span class="room-type-tag">${r.type}</span></td>
+                <td>$${r.price}/night</td>
+                <td>${r.maxOccupancy} guests</td>
+                <td><span class="status-badge status-${r.status.toLowerCase()}">${r.status}</span></td>
+                <td class="action-col">
+                  <button class="btn btn-outline btn-sm" onclick="editRoom(${JSON.stringify(r).replace(/"/g,'&quot;')})"><i class="fas fa-edit"></i></button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteRoom(${r.id},'${r.roomNumber}')"><i class="fas fa-trash"></i></button>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+      renderPagination(rooms, 'pagination', loadRooms);
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  function openRoomModal(room = null) {
+    document.getElementById('roomForm').reset();
+    document.getElementById('editRoomId').value = room?.id || '';
+    document.getElementById('modalTitle').textContent = room ? 'Edit Room' : 'Add Room';
+    if (room) {
+      document.getElementById('roomNumber').value = room.roomNumber;
+      document.getElementById('roomType').value = room.type;
+      document.getElementById('roomPrice').value = room.price;
+      document.getElementById('maxOccupancy').value = room.maxOccupancy;
+      document.getElementById('roomStatus').value = room.status;
+      document.getElementById('roomDesc').value = room.description || '';
+      document.getElementById('roomImage').value = room.imageUrl || '';
+    }
+    document.getElementById('roomModal').style.display = 'flex';
+  }
+
+  function closeRoomModal() { document.getElementById('roomModal').style.display = 'none'; }
+  function editRoom(r) { openRoomModal(r); }
+
+  document.getElementById('roomForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('editRoomId').value;
+    const payload = {
+      roomNumber: document.getElementById('roomNumber').value,
+      type: document.getElementById('roomType').value,
+      price: parseFloat(document.getElementById('roomPrice').value),
+      maxOccupancy: parseInt(document.getElementById('maxOccupancy').value),
+      status: document.getElementById('roomStatus').value,
+      description: document.getElementById('roomDesc').value,
+      imageUrl: document.getElementById('roomImage').value
+    };
+    const btn = document.getElementById('saveRoomBtn');
+    setButtonLoading(btn, true);
+    try {
+      if (id) await apiPut(`/api/rooms/${id}`, payload);
+      else await apiPost('/api/rooms', payload);
+      showToast(id ? 'Room updated!' : 'Room created!', 'success');
+      closeRoomModal();
+      loadRooms();
+    } catch (err) { showToast(err.message, 'error'); }
+    finally { setButtonLoading(btn, false); }
+  });
+
+  function deleteRoom(id, num) {
+    showConfirmModal('Delete Room', `Delete Room ${num}? This cannot be undone.`, async () => {
+      try {
+        await apiDelete(`/api/rooms/${id}`);
+        showToast('Room deleted', 'success');
+        loadRooms();
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+  }
+
+  loadRooms();
+  initNavbar();
+</script>
+</body>
+</html>

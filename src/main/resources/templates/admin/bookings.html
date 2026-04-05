@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bookings — LuxeStay Admin</title>
+  <link rel="stylesheet" th:href="@{/css/main.css}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+<div th:replace="~{fragments :: navbar}"></div>
+<div class="admin-layout">
+  <aside class="admin-sidebar">
+    <div class="sidebar-brand"><i class="fas fa-hotel"></i> Admin Panel</div>
+    <nav class="sidebar-nav">
+      <a href="/admin" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+      <a href="/admin/rooms" class="sidebar-link staff-hidden"><i class="fas fa-bed"></i> Rooms</a>
+      <a href="/admin/bookings" class="sidebar-link active"><i class="fas fa-calendar-alt"></i> Bookings</a>
+      <a href="/admin/users" class="sidebar-link staff-hidden"><i class="fas fa-users"></i> Users</a>
+      <a href="/admin/reports" class="sidebar-link staff-hidden"><i class="fas fa-chart-bar"></i> Reports</a>
+    </nav>
+  </aside>
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <h1>All Bookings</h1>
+      <div class="filter-row">
+        <select id="statusFilter" class="form-input" onchange="loadBookings()" style="width:auto">
+          <option value="">All Statuses</option>
+          <option value="PENDING">Pending</option>
+          <option value="CONFIRMED">Confirmed</option>
+          <option value="CHECKED_IN">Checked In</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div id="bookingsTable"><div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i></div></div>
+    <div class="pagination" id="pagination"></div>
+  </main>
+</div>
+<div th:replace="~{fragments :: toast}"></div>
+<div th:replace="~{fragments :: modal}"></div>
+<script th:src="@{/js/app.js}"></script>
+<script>
+  requireAdmin();
+
+  window.addEventListener('DOMContentLoaded', () => {
+    if (getUser()?.role === 'STAFF') {
+      document.querySelectorAll('.staff-hidden').forEach(el => el.style.display = 'none');
+    }
+  });
+
+  const isAdmin = getUser()?.role === 'ADMIN';
+  const bookingsEndpoint = isAdmin ? '/api/admin/bookings' : '/api/staff/bookings';
+
+  async function loadBookings(page = 0) {
+    const status = document.getElementById('statusFilter').value;
+    let url = `${bookingsEndpoint}?page=${page}&size=15`;
+    if (status) url += `&status=${status}`;
+    try {
+      const data = await apiFetch(url);
+      const bk = data.data;
+      document.getElementById('bookingsTable').innerHTML = `
+        <table class="admin-table">
+          <thead>
+            <tr><th>ID</th><th>Guest</th><th>Room</th><th>Check-in</th><th>Check-out</th><th>Total</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            ${bk.content.map(b => `
+              <tr>
+                <td><strong>#${b.id}</strong></td>
+                <td>${b.user?.name}<br><small class="text-muted">@${b.user?.username}</small></td>
+                <td>Room ${b.room?.roomNumber}<br><small>${b.room?.type}</small></td>
+                <td>${b.checkInDate}</td>
+                <td>${b.checkOutDate}</td>
+                <td><strong>$${b.totalPrice}</strong></td>
+                <td><span class="status-badge status-${b.status.toLowerCase()}">${b.status}</span></td>
+                <td class="action-col">
+                  ${b.status === 'PENDING' && isAdmin ? `<button class="btn btn-primary btn-sm" onclick="confirmBooking(${b.id})"><i class="fas fa-check"></i></button>` : ''}
+                  ${b.status === 'CONFIRMED' ? `<button class="btn btn-success btn-sm" onclick="checkIn(${b.id})"><i class="fas fa-sign-in-alt"></i></button>` : ''}
+                  ${b.status === 'CHECKED_IN' ? `<button class="btn btn-outline btn-sm" onclick="checkOut(${b.id})"><i class="fas fa-sign-out-alt"></i></button>` : ''}
+                  ${['PENDING','CONFIRMED'].includes(b.status) && isAdmin ? `<button class="btn btn-danger btn-sm" onclick="cancelBooking(${b.id})"><i class="fas fa-times"></i></button>` : ''}
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+      renderPagination(bk, 'pagination', loadBookings);
+    } catch (err) {
+      showToast(err.message, 'error');
+      document.getElementById('bookingsTable').innerHTML =
+        '<div style="padding:20px;color:red">Failed to load bookings: ' + err.message + '</div>';
+    }
+  }
+
+  async function confirmBooking(id) {
+    try { await apiPost(`/api/admin/bookings/${id}/confirm`, {}); showToast('Confirmed!', 'success'); loadBookings(); }
+    catch(e) { showToast(e.message, 'error'); }
+  }
+  async function checkIn(id) {
+    try { await apiPost(`/api/bookings/${id}/checkin`, {}); showToast('Checked in!', 'success'); loadBookings(); }
+    catch(e) { showToast(e.message, 'error'); }
+  }
+  async function checkOut(id) {
+    try { await apiPost(`/api/bookings/${id}/checkout`, {}); showToast('Checked out!', 'success'); loadBookings(); }
+    catch(e) { showToast(e.message, 'error'); }
+  }
+  function cancelBooking(id) {
+    showConfirmModal('Cancel Booking', `Cancel booking #${id}?`, async () => {
+      try { await apiDelete(`/api/admin/bookings/${id}`); showToast('Cancelled', 'success'); loadBookings(); }
+      catch(e) { showToast(e.message, 'error'); }
+    });
+  }
+
+  startStatsPoll(loadBookings);
+  initNavbar();
+  initWebSocket();
+</script>
+</body>
+</html>

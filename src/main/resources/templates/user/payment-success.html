@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Payment Successful — LuxeStay</title>
+  <link rel="stylesheet" th:href="@{/css/main.css}"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body class="auth-body">
+<div class="auth-container">
+  <div class="auth-card text-center">
+    <div class="success-icon"><i class="fas fa-check-circle"></i></div>
+    <h1>Payment Successful!</h1>
+    <p id="statusMsg">Processing your payment...</p>
+    <div id="paymentDetail"></div>
+    <a href="/bookings/my" class="btn btn-primary btn-full" style="margin-top:24px">View My Bookings</a>
+    <a href="/" class="btn btn-outline btn-full" style="margin-top:10px">Back to Home</a>
+  </div>
+</div>
+<div id="toastContainer" class="toast-container"></div>
+<script th:src="@{/js/app.js}"></script>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');        // PayPal v2 order ID
+  const payerId = params.get('PayerID');
+
+  async function executePayment() {
+    if (!token) {
+      document.getElementById('statusMsg').textContent = 'Payment confirmed!';
+      return;
+    }
+
+    try {
+      const data = await apiPost(
+        `/api/payments/execute?token=${token}&PayerID=${payerId || ''}`, {}
+      );
+      document.getElementById('statusMsg').textContent =
+        'Your booking is confirmed and payment received!';
+      document.getElementById('paymentDetail').innerHTML = `
+        <div class="payment-detail-box">
+          <p><i class="fas fa-receipt"></i> Transaction ID:
+            <strong>${data.data?.transactionId || token}</strong></p>
+          <p><i class="fas fa-money-bill"></i> Amount:
+            <strong>$${data.data?.amount || ''}</strong></p>
+        </div>`;
+    } catch (e) {
+      document.getElementById('statusMsg').textContent =
+        'Payment processed! Check your bookings for confirmation.';
+      document.getElementById('paymentDetail').innerHTML = `
+        <div class="payment-detail-box">
+          <p>Visit <a href="/bookings/my" class="link-primary">My Bookings</a>
+          to see your booking status.</p>
+        </div>`;
+    }
+  }
+
+  executePayment();
+  initNavbar();
+</script>
+</body>
+</html>
