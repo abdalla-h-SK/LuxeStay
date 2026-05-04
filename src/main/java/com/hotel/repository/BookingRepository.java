@@ -26,9 +26,9 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     Optional<Booking> findByIdAndUserId(Long id, Long userId);
 
-    /**
-     * Pessimistic lock to prevent double-booking race conditions.
-     */
+
+     // Pessimistic lock to prevent double-booking race conditions.
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         SELECT b FROM Booking b

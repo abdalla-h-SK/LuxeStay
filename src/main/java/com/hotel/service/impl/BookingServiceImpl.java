@@ -61,10 +61,10 @@ public class BookingServiceImpl {
         return bookingMapper.toResponse(findBookingById(id));
     }
 
-    /**
-     * Creates a booking with pessimistic write lock to prevent double-booking.
-     * The transaction holds the lock until commit, preventing race conditions.
-     */
+
+     // Creates a booking with pessimistic write lock to prevent double-booking.
+     // The transaction holds the lock until commit, preventing race conditions.
+
     @Transactional
     public BookingResponse createBooking(Long userId, BookingRequest request) {
         if (!request.getCheckOutDate().isAfter(request.getCheckInDate())) {

@@ -44,7 +44,7 @@ public class PaymentServiceImpl {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    // ── Get PayPal Access Token ──────────────────────────────────
+    // ── Get PayPal Access Token
     private String getAccessToken() {
         String credentials = payPalConfig.getClientId() + ":" + payPalConfig.getClientSecret();
         String encoded = Base64.getEncoder().encodeToString(credentials.getBytes());
@@ -65,7 +65,7 @@ public class PaymentServiceImpl {
         return (String) response.getBody().get("access_token");
     }
 
-    // ── Create Payment ───────────────────────────────────────────
+    // ── Create Payment
     @Transactional
     public PaymentResponse createPayment(Long userId, PaymentRequest request) {
         Booking booking = bookingService.findBookingById(request.getBookingId());
@@ -161,7 +161,7 @@ public class PaymentServiceImpl {
         }
     }
 
-    // ── Execute/Capture Payment ──────────────────────────────────
+    // ── Execute/Capture Payment
     @Transactional
     public PaymentResponse executePayment(String token, String payerId) {
         // PayPal v2 uses 'token' param (which is the order ID) on redirect

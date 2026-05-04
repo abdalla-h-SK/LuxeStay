@@ -1,12 +1,7 @@
-# ==========================================
-# Hotel Management System - Application Config
-# ==========================================
-
 spring:
   application:
     name: hotel-management
 
-  # Database
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:hotel_db}
     username: ${DB_USERNAME:postgres}
@@ -19,7 +14,6 @@ spring:
       idle-timeout: 600000
       max-lifetime: 1800000
 
-  # JPA
   jpa:
     hibernate:
       ddl-auto: update
@@ -33,7 +27,6 @@ spring:
         order_inserts: true
         order_updates: true
 
-  # Redis Cache
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -41,7 +34,11 @@ spring:
       password: ${REDIS_PASSWORD:}
       timeout: 2000ms
 
-  # Mail
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000 # we can also handle if from config redis file
+
   mail:
     host: smtp.gmail.com
     port: 587
@@ -58,7 +55,6 @@ spring:
           timeout: 3000
           writetimeout: 5000
 
-  # OAuth2
   security:
     oauth2:
       client:
@@ -69,41 +65,29 @@ spring:
             scope: email, profile
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
 
-  # Thymeleaf
   thymeleaf:
     cache: false
     prefix: classpath:/templates/
     suffix: .html
 
-  # Cache
-  cache:
-    type: redis
-    redis:
-      time-to-live: 600000
-
-# JWT
 jwt:
   secret: ${JWT_SECRET}
   access-token-expiration: ${JWT_ACCESS_EXPIRATION:86400000}
   refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 
-# PayPal
 paypal:
   client-id: ${PAYPAL_CLIENT_ID}
   client-secret: ${PAYPAL_CLIENT_SECRET}
   mode: ${PAYPAL_MODE:sandbox}
 
-# OTP
 otp:
   expiration-minutes: ${OTP_EXPIRATION:10}
 
-# Rate Limiting
 rate-limit:
   capacity: 100
   refill-tokens: 100
   refill-duration-minutes: 1
 
-# Logging
 logging:
   level:
     root: INFO
@@ -112,7 +96,6 @@ logging:
     io.jsonwebtoken: DEBUG
     org.hibernate.SQL: DEBUG
 
-# Server
 server:
   port: ${SERVER_PORT:8080}
   servlet:
@@ -121,7 +104,6 @@ server:
     include-message: always
     include-binding-errors: always
 
-# Actuator
 management:
   endpoints:
     web:
@@ -131,7 +113,6 @@ management:
     health:
       show-details: when-authorized
 
-# SpringDoc
 springdoc:
   api-docs:
     path: /api-docs
@@ -139,7 +120,6 @@ springdoc:
     path: /swagger-ui.html
     operationsSorter: method
 
-# App
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:8080}
   oauth2:

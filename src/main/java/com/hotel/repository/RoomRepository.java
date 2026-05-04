@@ -24,10 +24,10 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     Page<Room> findByStatus(RoomStatus status, Pageable pageable);
 
-    /**
-     * Find available rooms that are not booked during the given date range.
-     * Uses pessimistic approach - excludes rooms with ANY overlapping confirmed/pending booking.
-     */
+
+     // Find available rooms that are not booked during the given date range.
+     // Uses pessimistic approach - excludes rooms with ANY overlapping confirmed/pending booking.
+
     @Query("""
         SELECT r FROM Room r
         WHERE r.status = 'AVAILABLE'

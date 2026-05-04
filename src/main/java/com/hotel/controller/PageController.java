@@ -1,9 +1,7 @@
 package com.hotel.controller;
 
-import com.hotel.security.UserPrincipal;
 import com.hotel.service.impl.RoomServiceImpl;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +14,7 @@ public class PageController {
 
     private final RoomServiceImpl roomService;
 
-    // ── Auth Pages ──────────────────────────────────────────────
+    // ── Auth Pages
     @GetMapping({"/", "/index"})
     public String home() { return "user/home"; }
 
@@ -44,7 +42,7 @@ public class PageController {
         return "auth/reset-password";
     }
 
-    // ── User Pages ───────────────────────────────────────────────
+    // ── User Pages
     @GetMapping("/rooms")
     public String rooms() { return "user/home"; }
 
@@ -75,7 +73,7 @@ public class PageController {
     @GetMapping("/payments/cancel")
     public String paymentCancel() { return "user/payment-cancel"; }
 
-    // ── Admin Pages ──────────────────────────────────────────────
+    // ── Admin Pages
     @GetMapping("/admin")
     public String adminDashboard() { return "admin/dashboard"; }
 
